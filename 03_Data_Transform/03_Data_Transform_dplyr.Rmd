@@ -1,0 +1,283 @@
+---
+title: "03_Data_Transform_dplyr"
+author: "Dylan Lee"
+date: "02/04/2020"
+output: pdf_document
+---
+
+```{r libraries}
+setwd("/Users/dylanlee/GitHub/r_data_science/01_Data_Viz")
+library(tidyverse) ## ggplot2, tibble, tidyr, readr, purrr, dplyr
+library(nycflights13)
+library(gapminder)
+library(Lahman)
+```
+
+Chapter 3:
+Data Transformation with dplyr
+
+```{r nyc flights data}
+data(flights)
+flights
+```
+
+• Pick observations by their values (filter()).
+• Reorder the rows (arrange()).
+• Pick variables by their names (select()).
+• Create new variables with functions of existing variables (mutate()).
+• Collapse many values down to a single summary (summa rize()).
+
+```{r filter}
+(dec25 <- filter(flights, month == 12, day == 25))
+(jan1 <- filter(flights, month == 1, day == 1))
+
+
+# & is “and,” | is “or,” and ! is “not.”
+
+filter(flights, month == 11 | month == 12)
+(nov_dec <- filter(flights, month %in% c(11,12)))
+
+# filter() excludes FALSE and NA values, need to keep NA in condition if wanted to keep: is.na(x)
+```
+
+```{r arrange}
+arrange(flights, year, month, day)
+
+arrange(flights, desc(arr_delay))
+
+# missing values are always sorted at the end
+```
+
+```{r select}
+select(flights, year, month, day)
+
+select(flights, year:day)
+
+select(flights, -(year:day))
+
+rename(flights, tail_num = tailnum)
+
+select(flights, time_hour, air_time, everything()) # useful if have handful of variables want to move to the start of the df
+```
+• starts_with("abc") matches names that begin with “abc”. • ends_with("xyz") matches names that end with “xyz”.
+• contains("ijk") matches names that contain “ijk”.
+• matches("(.)\\1") selects variables that match a regular expression. This one matches any variables that contain repeated characters.
+
+```{r mutate}
+flights_sml <- select(flights,
+                      year:day,
+                      ends_with("delay"),
+                      distance,
+                      air_time)
+mutate(flights_sml,
+       gain = arr_delay - dep_delay,
+       speed = distance / air_time * 60)
+
+mutate(flights_sml,
+       gain = arr_delay - dep_delay,
+       hours = air_time / 60,
+       gain_per_hour = gain / hours)
+
+transmute(flights,
+          gain = arr_delay - dep_delay,
+          hours = air_time / 60,
+          gain_per_hour = gain / hours)
+
+transmute(flights,
+          dep_time,
+          hour = dep_time %/% 100,
+          minute = dep_time %% 100)
+```
+
+```{r lead / lag}
+(x <- 1:10)
+lag(x)
+lead(x)
+x - lag(x)
+(x != lag(x))
+```
+
+```{r cumulative and rolling aggregates}
+x
+cumsum(x)
+cummean(x)
+cumprod(x)
+cummin(x)
+cummax(x)
+```
+
+```{r ranking}
+(y <- c(1,2,3,NA,3,4))
+min_rank(y)
+min_rank(desc(y))
+```
+
+```{r summarize}
+summarize(flights, delay = mean(dep_delay, na.rm = TRUE))
+
+by_day <- group_by(flights, year, month, day)
+summarize(by_day, delay = mean(dep_delay, na.rm = TRUE))
+```
+
+```{r combining multiple operations with the pipe}
+by_dest <- group_by(flights, dest)
+delay <- summarize(by_dest, count = n(),
+                   dist = mean(distance, na.rm = TRUE),
+                   delay = mean(arr_delay, na.rm = TRUE))
+delay <- filter(delay, count > 20, dest != "HNL")
+
+ggplot(data = delay, mapping = aes(x = dist, y = delay)) + 
+  geom_point(aes(size = count), alpha = 1/3) + 
+  geom_smooth(se = FALSE)
+
+##### OR #####
+
+delays <- flights %>%
+  group_by(dest) %>%
+  summarize(count = n(),
+            dist = mean(distance, na.rm =TRUE),
+            delay = mean(arr_delay, na.rm = TRUE)) %>%
+  filter(count > 20, dest != "HNL")
+ggplot(data = delays, mapping = aes(x = dist, y = delay)) + 
+  geom_point(aes(size = count), alpha = 1/3) + 
+  geom_smooth(se = FALSE)
+```
+
+```{r missing values}
+not_cancelled <- flights %>% 
+  filter(!is.na(dep_delay), !is.na(arr_delay))
+
+not_cancelled %>%
+  group_by(year,month,day) %>% 
+  summarize(mean = mean(dep_delay))
+```
+
+```{r counts}
+delays <- not_cancelled %>%
+  group_by(tailnum) %>%
+  summarize(delay = mean(arr_delay))
+ggplot(data = delays, mapping = aes(x = delay)) + 
+  geom_freqpoly(binwidth = 10)
+
+delays <- not_cancelled %>%
+  group_by(tailnum) %>% 
+  summarize(delay = mean(arr_delay, na.rm = TRUE),
+            n = n())
+ggplot(data = delays, mapping = aes(x = n, y = delay)) + 
+  geom_point(alpha = 1/10)
+
+delays %>% 
+  filter(n > 25) %>%
+  ggplot(mapping = aes(x = n, y = delay)) + 
+  geom_point(alpha = 1/10)
+```
+
+```{r baseball example}
+(batting <- as_tibble(Lahman::Batting))
+
+batters <- batting %>%
+  group_by(playerID) %>%
+  summarize(ba = sum(H, na.rm=TRUE) / sum(AB, na.rm=TRUE),
+            ab = sum(AB, na.rm=TRUE))
+
+batters %>%
+  filter(ab > 100) %>%
+  ggplot(mapping = aes(x = ab, y = ba)) + 
+    geom_point() + 
+    geom_smooth(se = FALSE)
+  
+```
+
+```{r summary functions}
+# measures of location
+not_cancelled %>%
+  group_by(year,month,day) %>%
+  summarize(avg_delay1 = mean(arr_delay),
+            avg_delay2 = mean(arr_delay[arr_delay > 0 ]))
+
+# measures of spread
+not_cancelled %>%
+  group_by(dest) %>%
+  summarize(distance_sd = sd(distance)) %>% 
+  arrange(desc(distance_sd))
+
+# measures of rank
+not_cancelled %>%
+  group_by(year,month,day) %>%
+  summarize(first = min(dep_time),
+            last = max(dep_time))
+
+# measures of position
+not_cancelled %>% 
+  group_by(year,month,day) %>%
+  summarize(first_dep = first(dep_time),
+            last_dep = last(dep_time))
+
+not_cancelled %>% 
+  group_by(year,month,day) %>%
+  mutate(r = min_rank(desc(dep_time))) %>%
+  filter(r %in% range(r))
+
+# counts: n(), sum(!is.na(x)), n_distinct(x)
+not_cancelled %>%
+  group_by(dest) %>%
+  summarize(carriers = n_distinct(carrier)) %>%
+  arrange(desc(carriers))
+
+not_cancelled %>%
+  count(dest)
+
+not_cancelled %>%
+  count(tailnum, wt = distance)
+
+not_cancelled %>%
+  group_by(tailnum) %>%
+  summarize(n = sum(distance))
+
+# counts and proportions of logical values
+not_cancelled %>% 
+  group_by(year,month,day) %>% 
+  summarize(n_early = sum(dep_time < 500))
+
+not_cancelled %>% 
+  group_by(year,month,day) %>% 
+  summarize(hour_perc = mean(arr_delay > 60))
+
+```
+
+```{r grouping by multiple variables}
+daily <- group_by(flights, year, month, day)
+(per_day <- summarize(daily, flights = n()))
+(per_month <- summarize(per_day, flights = sum(flights)))
+(per_year <- summarize(per_month, flights = sum(flights)))
+```
+
+```{r ungrouping}
+daily %>% 
+  ungroup() %>%
+  summarize(flights = n())
+```
+
+```{r grouped mutates and filters}
+flights_sml %>% 
+  group_by(year,month,day) %>%
+  filter(rank(desc(arr_delay)) < 10)
+
+(popular_dests <- flights %>%
+  group_by(dest) %>%
+  filter(n() > 365))
+
+popular_dests %>% 
+  filter(arr_delay > 0) %>%
+  mutate(prop_delay = arr_delay / sum(arr_delay)) %>%
+  select(year:day, dest, arr_delay, prop_delay)
+```
+
+
+
+
+
+
+
+
+
