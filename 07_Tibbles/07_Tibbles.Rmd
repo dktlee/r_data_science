@@ -1,0 +1,79 @@
+---
+title: "07_Tibbles"
+author: "Dylan Lee"
+date: "01/05/2020"
+output: pdf_document
+---
+
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+```
+
+
+```{r}
+as_tibble(iris) #coerce a df to a tibble
+
+tibble(x = 1:5,
+       y = 1,
+       z = x^2 + y) #create new tibble from vectors 
+```
+
+Tibble never changes the type of the inputs (ie it never converts strings to factors, never creates row names)
+
+
+```{r Unusual columns names}
+tb <- tibble(
+  `:)` = "smile",
+  ` ` = "space",
+  `2000` = "number"
+)
+tb
+```
+
+Transposed tibble
+``` {r tribble}
+tribble(
+  ~x, ~y, ~z,
+  "a",2,3.6,
+  "b",1,8.5
+)
+```
+
+```{r printing}
+tibble(
+  a = lubridate::now() + runif(1e3)*86400,
+  b = lubridate::today() + runif(1e3)*30,
+  c = 1:1e3,
+  d = runif(1e3),
+  e = sample(letters, 1e3, replace = TRUE)
+)
+
+nycflights13::flights %>%
+  print(n = 10, width = Inf)
+
+nycflights13::flights %>%
+  View()
+
+```
+
+```{r subsetting}
+df <- tibble(
+  x = runif(5),
+  y = rnorm(5)
+)
+
+df$x
+df[["x"]]
+
+df %>% .$x
+df %>% .[["x"]]
+```
+
+For functions that dont work with tiblles, use as.data.frame() to turn a tibble back to a data.frame
+
+
+
+
+
+
+
