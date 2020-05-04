@@ -1,0 +1,21 @@
+---
+title: "08_Data_Import_with_readr"
+author: "Dylan Lee"
+date: "04/05/2020"
+output: pdf_document
+---
+
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+
+read_csv("a,b,c
+         1,2,3
+         4,5,6")
+```
+
+Use read_csv / read_csv2 over base R read.csv because its faster, produces tibbles, and doesn't convert character vectors to factors.
+
+```{r write_csv}
+write_csv(challenge, "challenge.csv")
+
+```
